@@ -1,0 +1,8 @@
+blog
+robots.txt
+events.html
+security.html
+faq
+pippo
+sitemap.xml
+cart
