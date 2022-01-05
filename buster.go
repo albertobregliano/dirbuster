@@ -4,16 +4,41 @@ import (
 	"bufio"
 	"errors"
 	"io"
+	"net/url"
 	"os"
 	"strconv"
 )
 
 type buster struct {
-	input  io.Reader
-	output io.Writer
+	baseurl  string
+	wordlist string
+	input    io.Reader
+	output   io.Writer
 }
 
 type option func(*buster) error
+
+func WithBaseurl(baseurl string) option {
+	return func(b *buster) error {
+		_, err := url.Parse(baseurl)
+		if baseurl == "" || err != nil {
+			return errors.New("baseurl empty or not valid")
+		}
+		b.baseurl = baseurl
+		return nil
+	}
+}
+
+func WithWordlist(wordlist string) option {
+	return func(b *buster) error {
+		_, err := os.Stat(wordlist)
+		if os.IsNotExist(err) {
+			return errors.New("wordlist not reachable")
+		}
+		b.wordlist = wordlist
+		return nil
+	}
+}
 
 func WithInput(input io.Reader) option {
 	return func(b *buster) error {
@@ -37,8 +62,10 @@ func WithOutput(output io.Writer) option {
 
 func NewBuster(opts ...option) (buster, error) {
 	b := buster{
-		input:  os.Stdin,
-		output: os.Stdout,
+		baseurl:  "http://127.0.0.1",
+		wordlist: "",
+		input:    os.Stdin,
+		output:   os.Stdout,
 	}
 	for _, opt := range opts {
 		err := opt(&b)
@@ -47,6 +74,10 @@ func NewBuster(opts ...option) (buster, error) {
 		}
 	}
 	return b, nil
+}
+
+func (b buster) Run() {
+	Exists(b)
 }
 
 func (b buster) Urls() int {

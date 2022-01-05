@@ -50,8 +50,17 @@ var mapTestedUri = make(map[string]bool)
 
 var c http.Client
 
-func Exists(baseurl string, wordlist []string) error {
+func Exists(b buster) error {
 	ctx := context.Background()
+
+	wordlist := b.wordlist
+	baseurl := b.baseurl
+	output := b.output
+
+	words, err := ListToCheck(wordlist)
+	if err != nil {
+		return fmt.Errorf("wordlist is not valid: %v", err)
+	}
 
 	baseurlpieces, err := url.Parse(baseurl)
 	if err != nil {
@@ -119,12 +128,13 @@ func Exists(baseurl string, wordlist []string) error {
 			if !ok {
 				break
 			}
-			fmt.Println(r)
+			output.Write([]byte(r + "\n"))
+			//fmt.Println(r)
 		}
 		finished <- true
 	}()
 
-	for _, word := range wordlist {
+	for _, word := range words {
 		uri := baseurl + word
 		_, err := url.ParseRequestURI(uri)
 		if err != nil {
@@ -145,22 +155,25 @@ func Exists(baseurl string, wordlist []string) error {
 }
 
 func headPage(ctx context.Context, uri string, wg *sync.WaitGroup) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	//ctx, cancel := context.WithTimeout(ctx, 35*time.Second)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer wg.Done()
-	req, err := http.NewRequest("HEAD", uri, nil)
+	req, err := http.NewRequestWithContext(ctx, "HEAD", uri, nil)
 	if err != nil {
 		log.Printf("Error in request creation: %v", err)
 		return
 	}
-	resp, err := c.Do(req.WithContext(ctx))
+	resp, err := c.Do(req)
 	if err != nil {
 		log.Printf(uri, err)
 		return
 	}
 	if resp.StatusCode <= 403 {
-		results <- uri + " " + resp.Status
-		tobeanalized <- uri
+		results <- fmt.Sprintf("%s\t%s\t%s\t%s", resp.Status, resp.Header.Get("Content-type"), resp.Header.Get("Content-length"), uri)
+		if strings.Contains(resp.Header.Get("Content-type"), "html") {
+			tobeanalized <- uri
+		}
 	}
 	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
@@ -170,11 +183,11 @@ func getPage(ctx context.Context, uri, baseurlHost, baseurlScheme string, wg *sy
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	defer wg.Done()
-	req, err := http.NewRequest("GET", uri, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
 	if err != nil {
 		log.Printf("Request non vaid %v", err)
 	}
-	resp, err := c.Do(req.WithContext(ctx))
+	resp, err := c.Do(req)
 	if err != nil {
 		log.Println(err)
 		return

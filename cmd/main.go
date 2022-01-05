@@ -4,35 +4,35 @@ import (
 	"dirbuster"
 	"flag"
 	"fmt"
-	"io/fs"
 	"log"
 	"os"
-	"path/filepath"
 )
 
 func main() {
 
 	baseurl := flag.String("u", "http://127.0.0.1", "Host to test")
 	wordlist := flag.String("w", "wordlist.txt", "paths to test")
+	output := flag.String("o", "", "output file to store data")
 
 	flag.Parse()
 
-	fmt.Println(Files("../"))
-
-	list, err := dirbuster.ListToCheck(*wordlist)
+	b, err := dirbuster.NewBuster(
+		dirbuster.WithBaseurl(*baseurl),
+		dirbuster.WithWordlist(*wordlist),
+	)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("impossible to create buster, error: %v", err)
 	}
-	dirbuster.Exists(*baseurl, list)
-}
 
-func Files(path string) (count int) {
-	fsys := os.DirFS(path)
-	fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
-		if filepath.Ext(p) == ".go" {
-			count++
+	if *output != "" {
+		outputFile, err := os.Create(*output)
+		if err != nil {
+			log.Fatalf("impossible to create file %s, error: %v", *output, err)
 		}
-		return nil
-	})
-	return count
+		setOutput := dirbuster.WithOutput(outputFile)
+		setOutput(&b)
+		fmt.Printf("%+v", &b)
+	}
+
+	b.Run()
 }
