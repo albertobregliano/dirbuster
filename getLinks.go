@@ -18,15 +18,13 @@ func getLinks(body io.Reader) []string {
 			return links
 		case html.StartTagToken, html.EndTagToken:
 			token := z.Token()
-			if "a" == token.Data {
+			if token.Data == "a" {
 				for _, attr := range token.Attr {
 					if attr.Key == "href" {
 						links = append(links, attr.Val)
 					}
-
 				}
 			}
-
 		}
 	}
 }
