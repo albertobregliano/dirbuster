@@ -1,15 +1,13 @@
 package main
 
 import (
-	"context"
+	"dirbuster"
 	"flag"
 	"fmt"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
-	"dirbuster"
-	"time"
 )
 
 func main() {

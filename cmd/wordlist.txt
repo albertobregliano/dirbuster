@@ -6,3 +6,4 @@ faq
 pippo
 sitemap.xml
 cart
+/

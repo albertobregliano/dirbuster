@@ -3,22 +3,19 @@ package dirbuster_test
 import (
 	"dirbuster"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
-	"time"
 )
 
-var port, address string
-var srv *httptest.Server
+var portint int
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-	port = ":" + strconv.Itoa(8000+rand.Intn(1000))
-	address = "127.0.0.1"
+func webserver() *httptest.Server {
+	portint++
+	port := ":" + strconv.Itoa(24000+portint)
+	address := "127.0.0.1"
 	l, err := net.Listen("tcp", address+port)
 	if err != nil {
 		log.Fatal(err)
@@ -32,14 +29,17 @@ func init() {
 		w.WriteHeader(http.StatusForbidden)
 	})
 
-	srv = httptest.NewUnstartedServer(mux)
+	srv := httptest.NewUnstartedServer(mux)
 	srv.Listener = l
+	return srv
 }
+
 func TestExist(t *testing.T) {
 	t.Parallel()
+	srv := webserver()
 	srv.Start()
-	defer srv.CloseClientConnections()
 	defer srv.Close()
+
 	type args struct {
 		url string
 	}
@@ -49,13 +49,13 @@ func TestExist(t *testing.T) {
 		want    *http.Response
 		wantErr bool
 	}{
-		{"1,", args{url: "http://" + address + port + "/test"}, &http.Response{
+		{"1,", args{url: srv.URL + "/test"}, &http.Response{
 			StatusCode: 200,
 		}, false},
-		{"2,", args{url: "http://" + address + port + "/nop"}, &http.Response{
+		{"2,", args{url: srv.URL + "/nop"}, &http.Response{
 			StatusCode: 404,
 		}, false},
-		{"3,", args{url: "http://" + address + port + "/resource"}, &http.Response{
+		{"3,", args{url: srv.URL + "/resource"}, &http.Response{
 			StatusCode: 403,
 		}, false},
 	}
@@ -71,4 +71,28 @@ func TestExist(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestExists(t *testing.T) {
+	t.Parallel()
+	srv := webserver()
+	srv.Start()
+	defer srv.CloseClientConnections()
+	defer srv.Close()
+	type args struct {
+		baseurl  string
+		wordlist []string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{"1", args{srv.URL, []string{"test"}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dirbuster.Exists(tt.args.baseurl, tt.args.wordlist)
+		})
+	}
+	srv.Close()
 }
