@@ -74,23 +74,29 @@ func Exists(b buster) error {
 		baseurl += "/"
 	}
 
+	customT := &http.Transport{
+		DisableKeepAlives:      false,
+		DisableCompression:     false,
+		MaxIdleConns:           10,
+		MaxIdleConnsPerHost:    10,
+		MaxConnsPerHost:        10,
+		IdleConnTimeout:        0,
+		ResponseHeaderTimeout:  0,
+		ExpectContinueTimeout:  0,
+		MaxResponseHeaderBytes: 0,
+		WriteBufferSize:        0,
+		ReadBufferSize:         0,
+		ForceAttemptHTTP2:      false,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+
 	c = http.Client{
-		Transport: &http.Transport{
-			DisableKeepAlives:      false,
-			DisableCompression:     false,
-			MaxIdleConns:           10,
-			MaxIdleConnsPerHost:    10,
-			MaxConnsPerHost:        10,
-			IdleConnTimeout:        0,
-			ResponseHeaderTimeout:  0,
-			ExpectContinueTimeout:  0,
-			MaxResponseHeaderBytes: 0,
-			WriteBufferSize:        0,
-			ReadBufferSize:         0,
-			ForceAttemptHTTP2:      false,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
+		Transport: retryRoundTripper{
+			next:       customT,
+			maxRetries: 3,
+			delay:      2 * time.Second,
 		},
 		Timeout: 0,
 	}
@@ -209,5 +215,37 @@ func getPage(ctx context.Context, uri, baseurlHost, baseurlScheme string, wg *sy
 		}
 
 		tobetested <- fmt.Sprintf("%s://%s/%s", baseurlScheme, baseurlHost, urlpieces.Path)
+	}
+}
+
+type retryRoundTripper struct {
+	next       http.RoundTripper
+	maxRetries int
+	delay      time.Duration
+}
+
+func (rr retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	var attempts int
+	for {
+		res, err := rr.next.RoundTrip(r)
+		attempts++
+
+		// max attempts reached.
+		if attempts == rr.maxRetries {
+			return res, err
+		}
+
+		// good enough to stop retrying.
+		if err == nil && res.StatusCode < http.StatusInternalServerError {
+			return res, err
+		}
+
+		// delay and retry
+		select {
+		case <-r.Context().Done():
+			return res, r.Context().Err()
+		case <-time.After(rr.delay):
+			log.Printf("will retry %s, %d of %d attempts\n", r.URL, attempts, rr.maxRetries)
+		}
 	}
 }
