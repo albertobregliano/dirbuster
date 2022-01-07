@@ -3,7 +3,6 @@ package main
 import (
 	"dirbuster"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 )
@@ -31,7 +30,6 @@ func main() {
 		}
 		setOutput := dirbuster.WithOutput(outputFile)
 		setOutput(&b)
-		fmt.Printf("%+v", &b)
 	}
 
 	b.Run()
