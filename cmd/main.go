@@ -5,7 +5,6 @@ import (
 	"dirbuster"
 	"flag"
 	"log"
-	"os"
 )
 
 func main() {
@@ -18,23 +17,9 @@ func main() {
 
 	flag.Parse()
 
-	b, err := dirbuster.NewBuster(
-		dirbuster.WithBaseurl(*baseurl),
-		dirbuster.WithWordlist(*wordlist),
-		dirbuster.WithContext(ctx),
-	)
+	err := dirbuster.Run(ctx, *baseurl, *wordlist, *output)
 	if err != nil {
-		log.Fatalf("impossible to create buster, error: %v", err)
+		log.Fatalf("Error %v", err)
 	}
 
-	if *output != "" {
-		outputFile, err := os.Create(*output)
-		if err != nil {
-			log.Fatalf("impossible to create file %s, error: %v", *output, err)
-		}
-		setOutput := dirbuster.WithOutput(outputFile)
-		setOutput(&b)
-	}
-
-	b.Run()
 }

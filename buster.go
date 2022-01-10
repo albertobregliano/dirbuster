@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -52,12 +53,16 @@ func WithInput(input io.Reader) option {
 	}
 }
 
-func WithOutput(output io.Writer) option {
+func WithOutput(output string) option {
 	return func(b *buster) error {
-		if output == nil {
-			return errors.New("nil output writer")
+		if output == "" {
+			return nil
 		}
-		b.output = output
+		outputFile, err := os.Create(output)
+		if err != nil {
+			return errors.New("impossible to create file")
+		}
+		b.output = outputFile
 		return nil
 	}
 }
@@ -74,6 +79,7 @@ func WithContext(ctx context.Context) option {
 
 func NewBuster(opts ...option) (buster, error) {
 	b := buster{
+		context:  context.TODO(),
 		baseurl:  "http://127.0.0.1",
 		wordlist: "",
 		input:    os.Stdin,
@@ -86,10 +92,6 @@ func NewBuster(opts ...option) (buster, error) {
 		}
 	}
 	return b, nil
-}
-
-func (b buster) Run() {
-	Exists(b.context, b)
 }
 
 func (b buster) Urls() int {
@@ -108,4 +110,19 @@ func Urls() int {
 		panic("internal error")
 	}
 	return b.Urls()
+}
+
+func Run(ctx context.Context, baseurl, wordlist, output string) error {
+	b, err := NewBuster(
+		WithContext(ctx),
+		WithBaseurl(baseurl),
+		WithWordlist(wordlist),
+		WithOutput(output),
+	)
+	if err != nil {
+		return fmt.Errorf("impossible to create buster, error: %v", err)
+	}
+
+	Exists(b.context, b)
+	return nil
 }
