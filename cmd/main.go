@@ -9,7 +9,8 @@ import (
 
 func main() {
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	baseurl := flag.String("u", "http://127.0.0.1", "Host to test")
 	wordlist := flag.String("w", "wordlist.txt", "paths to test")

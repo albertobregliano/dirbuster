@@ -1,18 +1,16 @@
 package dirbuster
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
-	"strconv"
+	"os/signal"
 )
 
 type buster struct {
-	context  context.Context
 	baseurl  string
 	wordlist string
 	input    io.Reader
@@ -67,19 +65,8 @@ func WithOutput(output string) option {
 	}
 }
 
-func WithContext(ctx context.Context) option {
-	return func(b *buster) error {
-		if ctx == nil {
-			b.context = context.TODO()
-		}
-		b.context = ctx
-		return nil
-	}
-}
-
 func NewBuster(opts ...option) (buster, error) {
 	b := buster{
-		context:  context.TODO(),
 		baseurl:  "http://127.0.0.1",
 		wordlist: "",
 		input:    os.Stdin,
@@ -94,27 +81,26 @@ func NewBuster(opts ...option) (buster, error) {
 	return b, nil
 }
 
-func (b buster) Urls() int {
-	lines := 0
-	scanner := bufio.NewScanner(b.input)
-	for scanner.Scan() {
-		lines++
-	}
-	b.output.Write([]byte(strconv.Itoa(lines)))
-	return lines
-}
-
-func Urls() int {
-	b, err := NewBuster()
-	if err != nil {
-		panic("internal error")
-	}
-	return b.Urls()
-}
-
 func Run(ctx context.Context, baseurl, wordlist, output string) error {
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		signal.Stop(c)
+		cancel()
+	}()
+
+	go func() {
+		select {
+		case <-c:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
 	b, err := NewBuster(
-		WithContext(ctx),
 		WithBaseurl(baseurl),
 		WithWordlist(wordlist),
 		WithOutput(output),
@@ -123,6 +109,5 @@ func Run(ctx context.Context, baseurl, wordlist, output string) error {
 		return fmt.Errorf("impossible to create buster, error: %v", err)
 	}
 
-	Exists(b.context, b)
-	return nil
+	return Exists(ctx, b)
 }
