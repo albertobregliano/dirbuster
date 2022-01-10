@@ -50,8 +50,7 @@ var mapTestedUri = make(map[string]bool)
 
 var c http.Client
 
-func Exists(b buster) error {
-	ctx := context.Background()
+func Exists(ctx context.Context, b buster) error {
 
 	wordlist := b.wordlist
 	baseurl := b.baseurl
@@ -165,7 +164,7 @@ func headPage(ctx context.Context, uri string, wg *sync.WaitGroup) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer wg.Done()
-	req, err := http.NewRequestWithContext(ctx, "HEAD", uri, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, uri, nil)
 	if err != nil {
 		log.Printf("Error in request creation: %v", err)
 		return
@@ -189,7 +188,7 @@ func getPage(ctx context.Context, uri, baseurlHost, baseurlScheme string, wg *sy
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	defer wg.Done()
-	req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		log.Printf("Request non vaid %v", err)
 	}

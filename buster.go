@@ -2,6 +2,7 @@ package dirbuster
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"io"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 )
 
 type buster struct {
+	context  context.Context
 	baseurl  string
 	wordlist string
 	input    io.Reader
@@ -60,6 +62,16 @@ func WithOutput(output io.Writer) option {
 	}
 }
 
+func WithContext(ctx context.Context) option {
+	return func(b *buster) error {
+		if ctx == nil {
+			b.context = context.TODO()
+		}
+		b.context = ctx
+		return nil
+	}
+}
+
 func NewBuster(opts ...option) (buster, error) {
 	b := buster{
 		baseurl:  "http://127.0.0.1",
@@ -77,7 +89,7 @@ func NewBuster(opts ...option) (buster, error) {
 }
 
 func (b buster) Run() {
-	Exists(b)
+	Exists(b.context, b)
 }
 
 func (b buster) Urls() int {

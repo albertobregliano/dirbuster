@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"dirbuster"
 	"flag"
 	"log"
@@ -8,6 +9,8 @@ import (
 )
 
 func main() {
+
+	ctx := context.Background()
 
 	baseurl := flag.String("u", "http://127.0.0.1", "Host to test")
 	wordlist := flag.String("w", "wordlist.txt", "paths to test")
@@ -18,6 +21,7 @@ func main() {
 	b, err := dirbuster.NewBuster(
 		dirbuster.WithBaseurl(*baseurl),
 		dirbuster.WithWordlist(*wordlist),
+		dirbuster.WithContext(ctx),
 	)
 	if err != nil {
 		log.Fatalf("impossible to create buster, error: %v", err)
