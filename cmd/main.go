@@ -16,16 +16,15 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
-		log.Println("Stop received")
 		signal.Stop(c)
 		cancel()
-		os.Exit(1)
 	}()
 
 	go func() {
 		select {
 		case <-c:
 			cancel()
+			log.Fatalf("Stop received")
 		case <-ctx.Done():
 		}
 	}()
