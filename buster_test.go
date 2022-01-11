@@ -13,11 +13,12 @@ import (
 	"testing"
 )
 
-var srv *httptest.Server
+var portint int
 
-func webserver() {
+func webserver() *httptest.Server {
+	portint++
 	address := "127.0.0.1"
-	port := ":" + strconv.Itoa(26000)
+	port := ":" + strconv.Itoa(2600+portint)
 
 	l, err := net.Listen("tcp", address+port)
 	if err != nil {
@@ -32,15 +33,20 @@ func webserver() {
 		w.WriteHeader(http.StatusForbidden)
 	})
 
-	srv = httptest.NewUnstartedServer(mux)
+	srv := httptest.NewUnstartedServer(mux)
 	srv.Close()
 	srv.Listener = l
-	srv.Start()
+
+	return srv
 }
 
 func TestRun(t *testing.T) {
-	webserver()
 	t.Parallel()
+
+	srv := webserver()
+	srv.Start()
+	defer srv.Close()
+
 	file, err := ioutil.TempFile("", "wordlist")
 	if err != nil {
 		log.Fatal(err)
