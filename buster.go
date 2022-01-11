@@ -5,8 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/url"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 type buster struct {
@@ -90,6 +94,24 @@ func NewBuster(opts ...option) (buster, error) {
 }
 
 func Run(ctx context.Context, baseurl, wordlist string, output interface{}) error {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		signal.Stop(c)
+		cancel()
+	}()
+
+	go func() {
+		select {
+		case <-c:
+			cancel()
+			time.Sleep(2 * time.Second)
+			log.Fatalf("Stop received")
+		case <-ctx.Done():
+		}
+	}()
 
 	b, err := NewBuster(
 		WithBaseurl(baseurl),
