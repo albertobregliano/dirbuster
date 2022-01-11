@@ -19,13 +19,13 @@ func main() {
 		log.Println("Stop received")
 		signal.Stop(c)
 		cancel()
+		os.Exit(1)
 	}()
 
 	go func() {
 		select {
 		case <-c:
 			cancel()
-			os.Exit(1)
 		case <-ctx.Done():
 		}
 	}()
