@@ -158,6 +158,8 @@ func Exists(ctx context.Context, b buster) error {
 }
 
 func headPage(ctx context.Context, uri string, wg *sync.WaitGroup) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	defer wg.Done()
 	sem <- 1
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, uri, nil)
@@ -182,6 +184,8 @@ func headPage(ctx context.Context, uri string, wg *sync.WaitGroup) {
 }
 
 func getPage(ctx context.Context, uri, baseurlHost, baseurlScheme string, wg *sync.WaitGroup) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	defer wg.Done()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
