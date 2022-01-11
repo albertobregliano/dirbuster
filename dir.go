@@ -42,26 +42,23 @@ func ListToCheck(wordlist string) ([]string, error) {
 	return result, nil
 }
 
-var results = make(chan string)
+var results = make(chan string, 1)
 var tobeanalized = make(chan string)
 var tobetested = make(chan string)
 var finished = make(chan bool, 1)
 var mapTestedUri = make(map[string]bool)
+var sem = make(chan int, 4)
 
 var c http.Client
 
 func Exists(ctx context.Context, b buster) error {
 
-	wordlist := b.wordlist
-	baseurl := b.baseurl
-	output := b.output
-
-	words, err := ListToCheck(wordlist)
+	words, err := ListToCheck(b.wordlist)
 	if err != nil {
 		return fmt.Errorf("wordlist is not valid: %v", err)
 	}
 
-	baseurlpieces, err := url.Parse(baseurl)
+	baseurlpieces, err := url.Parse(b.baseurl)
 	if err != nil {
 		return fmt.Errorf("baseurl is not valid: %v", err)
 	}
@@ -69,8 +66,8 @@ func Exists(ctx context.Context, b buster) error {
 	// baseurlPort := baseurlpieces.Port()
 	baseurlHost := baseurlpieces.Host
 
-	if !strings.HasSuffix(baseurl, "/") {
-		baseurl += "/"
+	if !strings.HasSuffix(b.baseurl, "/") {
+		b.baseurl += "/"
 	}
 
 	customT := &http.Transport{
@@ -95,7 +92,7 @@ func Exists(ctx context.Context, b buster) error {
 		Transport: retryRoundTripper{
 			next:       customT,
 			maxRetries: 3,
-			delay:      2 * time.Second,
+			delay:      1 * time.Second,
 		},
 		Timeout: 0,
 	}
@@ -133,14 +130,13 @@ func Exists(ctx context.Context, b buster) error {
 			if !ok {
 				break
 			}
-			output.Write([]byte(r + "\n"))
+			b.output.Write([]byte(r + "\n"))
 			//fmt.Println(r)
 		}
 		finished <- true
 	}()
-
 	for _, word := range words {
-		uri := baseurl + word
+		uri := b.baseurl + word
 		_, err := url.ParseRequestURI(uri)
 		if err != nil {
 			log.Printf("%s is not a valid url: %v\n", uri, err)
@@ -160,10 +156,8 @@ func Exists(ctx context.Context, b buster) error {
 }
 
 func headPage(ctx context.Context, uri string, wg *sync.WaitGroup) {
-	//ctx, cancel := context.WithTimeout(ctx, 35*time.Second)
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	defer wg.Done()
+	sem <- 1
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, uri, nil)
 	if err != nil {
 		log.Printf("Error in request creation: %v", err)
@@ -182,11 +176,10 @@ func headPage(ctx context.Context, uri string, wg *sync.WaitGroup) {
 	}
 	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
+	<-sem
 }
 
 func getPage(ctx context.Context, uri, baseurlHost, baseurlScheme string, wg *sync.WaitGroup) {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
 	defer wg.Done()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
@@ -244,7 +237,7 @@ func (rr retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 		case <-r.Context().Done():
 			return res, r.Context().Err()
 		case <-time.After(rr.delay):
-			log.Printf("will retry %s, %d of %d attempts\n", r.URL, attempts, rr.maxRetries)
+			log.Printf("will retry %s %s, %d of %d attempts\n", r.Method, r.URL, attempts, rr.maxRetries)
 		}
 	}
 }

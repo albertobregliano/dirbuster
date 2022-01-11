@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/url"
 	"os"
-	"os/signal"
 )
 
 type buster struct {
@@ -32,6 +31,9 @@ func WithBaseurl(baseurl string) option {
 
 func WithWordlist(wordlist string) option {
 	return func(b *buster) error {
+		if wordlist == "" {
+			return errors.New("wordlist cannot be blank")
+		}
 		_, err := os.Stat(wordlist)
 		if os.IsNotExist(err) {
 			return errors.New("wordlist not reachable")
@@ -51,16 +53,22 @@ func WithInput(input io.Reader) option {
 	}
 }
 
-func WithOutput(output string) option {
+func WithOutput(output interface{}) option {
 	return func(b *buster) error {
-		if output == "" {
-			return nil
+		switch o := output.(type) {
+		case string:
+			if o == "" {
+				return nil
+			}
+			outputFile, err := os.Create(o)
+			if err != nil {
+				return errors.New("impossible to create file")
+			}
+			b.output = outputFile
+		case io.Writer:
+			b.output = o
+		case nil:
 		}
-		outputFile, err := os.Create(output)
-		if err != nil {
-			return errors.New("impossible to create file")
-		}
-		b.output = outputFile
 		return nil
 	}
 }
@@ -81,24 +89,7 @@ func NewBuster(opts ...option) (buster, error) {
 	return b, nil
 }
 
-func Run(ctx context.Context, baseurl, wordlist, output string) error {
-
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer func() {
-		signal.Stop(c)
-		cancel()
-	}()
-
-	go func() {
-		select {
-		case <-c:
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
+func Run(ctx context.Context, baseurl, wordlist string, output interface{}) error {
 
 	b, err := NewBuster(
 		WithBaseurl(baseurl),
