@@ -11,11 +11,10 @@ import (
 )
 
 func main() {
-
-	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
+	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		log.Println("Stop received")
 		signal.Stop(c)
