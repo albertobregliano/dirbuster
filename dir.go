@@ -52,6 +52,8 @@ var sem = make(chan int, 4)
 var c http.Client
 
 func Exists(ctx context.Context, b buster) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	words, err := ListToCheck(b.wordlist)
 	if err != nil {
