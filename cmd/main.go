@@ -5,29 +5,11 @@ import (
 	"dirbuster"
 	"flag"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 func main() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer func() {
-		signal.Stop(c)
-		cancel()
-	}()
-
-	go func() {
-		select {
-		case <-c:
-			cancel()
-			log.Fatalf("Stop received")
-		case <-ctx.Done():
-		}
-	}()
+	ctx := context.Background()
 
 	baseurl := flag.String("u", "http://127.0.0.1", "Host to test")
 	wordlist := flag.String("w", "wordlist.txt", "paths to test")
