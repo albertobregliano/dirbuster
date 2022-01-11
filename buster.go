@@ -90,8 +90,7 @@ func NewBuster(opts ...option) (buster, error) {
 }
 
 func Run(ctx context.Context, baseurl, wordlist string, output interface{}) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+
 	b, err := NewBuster(
 		WithBaseurl(baseurl),
 		WithWordlist(wordlist),
