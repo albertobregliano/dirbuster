@@ -25,6 +25,7 @@ func main() {
 		select {
 		case <-c:
 			cancel()
+			os.Exit(1)
 		case <-ctx.Done():
 		}
 	}()
